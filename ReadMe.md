@@ -77,8 +77,6 @@ selenium-framework/
     ├── main/java/com/automation/
     │   ├── ai/
     │   │   ├── AIAnalysisService.java   ← POSTs failure to AI agent on test failure
-    │   │   └── models/
-    │   │       └── FailureContext.java  ← Lombok model for failure payload
     │   ├── api/
     │   │   ├── LoginAPI.java            ← REST Assured login API
     │   │   ├── ProductAPI.java          ← REST Assured product API

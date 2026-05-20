@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Failure Analysis Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #080b10;
+      --surface: #0e1420;
+      --surface2: #141c2e;
+      --border: #1e2d45;
+      --accent: #00d4ff;
+      --accent2: #ff4d6d;
+      --accent3: #00e5a0;
+      --warn: #ffb347;
+      --text: #d0dff0;
+      --muted: #4a6080;
+      --font: 'IBM Plex Sans', sans-serif;
+      --mono: 'IBM Plex Mono', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 15px;
+      overflow: hidden;
+    }
+
+    /* ── Layout ── */
+    .app {
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 28px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    header h1 {
+      font-size: 17px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.3px;
+    }
+
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #00e5a015;
+      border: 1px solid #00e5a030;
+      color: var(--accent3);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.8px;
+    }
+
+    .live-dot {
+      width: 7px; height: 7px;
+      background: var(--accent3);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn {
+      background: var(--accent);
+      color: #000;
+      border: none;
+      padding: 7px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+      font-family: var(--font);
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 28px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .toolbar input,
+    .toolbar select {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: var(--font);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .toolbar input { width: 280px; }
+    .toolbar select { min-width: 180px; cursor: pointer; }
+
+    .toolbar input:focus,
+    .toolbar select:focus { border-color: var(--accent); }
+
+    .toolbar input::placeholder { color: var(--muted); }
+
+    /* ── Body ── */
+    .body {
+      display: grid;
+      grid-template-columns: 1fr;
+      overflow: hidden;
+    }
+
+    /* ── Stats ── */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .stat {
+      background: var(--surface);
+      padding: 16px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .stat .s-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-weight: 600;
+    }
+
+    .stat .s-value {
+      font-size: 28px;
+      font-weight: 700;
+      font-family: var(--mono);
+      color: #fff;
+      line-height: 1;
+    }
+
+    .stat .s-value.c-cyan  { color: var(--accent); }
+    .stat .s-value.c-red   { color: var(--accent2); }
+    .stat .s-value.c-green { color: var(--accent3); }
+    .stat .s-value.c-warn  { color: var(--warn); }
+
+    /* ── Main content ── */
+    .main {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      overflow: hidden;
+    }
+
+    .table-header {
+      padding: 14px 28px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    /* ── Table ── */
+    .table-wrap {
+      overflow-y: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    thead {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    thead th {
+      background: var(--surface2);
+      color: var(--muted);
+      text-align: left;
+      padding: 11px 16px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid #0e1420;
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+
+    tbody tr:hover { background: var(--surface2); }
+
+    tbody td {
+      padding: 13px 16px;
+      vertical-align: middle;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 260px;
+      font-size: 14px;
+    }
+
+    td.wide { max-width: 320px; }
+
+    .num-col {
+      font-family: var(--mono);
+      color: var(--muted);
+      font-size: 12px;
+      width: 48px;
+    }
+
+    .ts-col {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* ── Pills ── */
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      font-family: var(--mono);
+      white-space: nowrap;
+    }
+
+    .pill.high      { background: #00e5a015; color: var(--accent3); border: 1px solid #00e5a025; }
+    .pill.medium    { background: #ffb34715; color: var(--warn);    border: 1px solid #ffb34725; }
+    .pill.low       { background: #ff4d6d15; color: var(--accent2); border: 1px solid #ff4d6d25; }
+    .pill.unknown   { background: #4a608015; color: var(--muted);   border: 1px solid #4a608025; }
+    .pill.transient { background: #00d4ff15; color: var(--accent);  border: 1px solid #00d4ff25; }
+    .pill.permanent { background: #ff4d6d15; color: var(--accent2); border: 1px solid #ff4d6d25; }
+
+    #loading {
+      text-align: center;
+      padding: 80px;
+      color: var(--muted);
+      font-size: 15px;
+      font-family: var(--mono);
+    }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 200;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 32px 20px;
+      overflow-y: auto;
+      backdrop-filter: blur(4px);
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 100%;
+      max-width: 800px;
+      padding: 28px;
+      position: relative;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 18px; right: 20px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 20px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 4px;
+    }
+    .modal-close:hover { color: #fff; }
+
+    .modal h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 20px;
+      padding-right: 32px;
+      line-height: 1.3;
+    }
+
+    .modal-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .mfield {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+
+    .mfield .mf-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 5px;
+    }
+
+    .mfield .mf-value {
+      font-size: 14px;
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .msection {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin: 16px 0 8px;
+    }
+
+    .modal pre {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-family: var(--mono);
+      font-size: 13px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: #a0b8d0;
+      max-height: 200px;
+      overflow-y: auto;
+      line-height: 1.6;
+    }
+
+    .fix-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+
+    .fix-list li {
+      background: var(--bg);
+      border-left: 3px solid var(--accent3);
+      padding: 10px 14px;
+      border-radius: 0 6px 6px 0;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header>
+    <div class="header-left">
+      <h1>⬡ AI Failure Analysis</h1>
+      <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+    </div>
+    <div class="header-right">
+      <button class="btn" onclick="loadData()">↻ Refresh</button>
+    </div>
+  </header>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <input type="text" id="searchInput" placeholder="Search test name or exception..." oninput="renderTable()"/>
+    <select id="filterType" onchange="renderTable()">
+      <option value="">All Failure Types</option>
+    </select>
+    <select id="filterEnv" onchange="renderTable()">
+      <option value="">All Environments</option>
+    </select>
+  </div>
+
+  <!-- Stats + Table -->
+  <div style="display:grid; grid-template-rows: auto 1fr; overflow:hidden;">
+
+    <!-- Stats -->
+    <div class="stats-bar">
+      <div class="stat">
+        <div class="s-label">Total Failures</div>
+        <div class="s-value c-cyan" id="statTotal">—</div>
+      </div>
+      <div class="stat">
+        <div class="s-label">High Confidence</div>
+        <div class="s-value c-green" id="statHigh">—</div>
+      </div>
+      <div class="stat">
+        <div class="s-label">Permanent Failures</div>
+        <div class="s-value c-red" id="statPermanent">—</div>
+      </div>
+      <div class="stat">
+        <div class="s-label">With Similar History</div>
+        <div class="s-value c-warn" id="statSimilar">—</div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="main">
+      <div class="table-header">Failure Log</div>
+      <div class="table-wrap">
+        <div id="loading">Loading failures...</div>
+        <table id="failureTable" style="display:none">
+          <thead>
+            <tr>
+              <th class="num-col">#</th>
+              <th>Timestamp</th>
+              <th>Test Name</th>
+              <th>Failure Type</th>
+              <th>Confidence</th>
+              <th>Transient</th>
+              <th>Environment</th>
+              <th>Similar Found</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModalDirect()">✕</button>
+    <h2 id="modalTitle"></h2>
+
+    <div class="modal-grid">
+      <div class="mfield"><div class="mf-label">Failure Type</div><div class="mf-value" id="mType"></div></div>
+      <div class="mfield"><div class="mf-label">Confidence</div><div class="mf-value" id="mConf"></div></div>
+      <div class="mfield"><div class="mf-label">Transient</div><div class="mf-value" id="mTransient"></div></div>
+      <div class="mfield"><div class="mf-label">Environment</div><div class="mf-value" id="mEnv"></div></div>
+    </div>
+
+    <div class="msection">Root Cause</div>
+    <pre id="mRootCause"></pre>
+
+    <div class="msection">Recommended Fixes</div>
+    <ul class="fix-list" id="mFixes"></ul>
+
+    <div class="msection">Framework Suggestion</div>
+    <pre id="mFramework"></pre>
+
+    <div class="msection">Exception Message</div>
+    <pre id="mException"></pre>
+
+    <div class="msection">Bug Report</div>
+    <pre id="mBugReport"></pre>
+  </div>
+</div>
+
+<script>
+  let allData = [];
+
+  async function loadData() {
+    try {
+      const res = await fetch("/dashboard-data");
+      allData = await res.json();
+      allData = allData.slice().reverse();
+      populateFilters();
+      updateStats();
+      renderTable();
+    } catch(e) {
+      document.getElementById("loading").textContent = "Failed to load data.";
+    }
+  }
+
+  function populateFilters() {
+    const types = [...new Set(allData.map(d => d.failureType).filter(Boolean))];
+    const envs  = [...new Set(allData.map(d => d.environment).filter(Boolean))];
+
+    const ts = document.getElementById("filterType");
+    const es = document.getElementById("filterEnv");
+
+    ts.innerHTML = '<option value="">All Failure Types</option>';
+    es.innerHTML = '<option value="">All Environments</option>';
+
+    types.forEach(t => { const o = document.createElement("option"); o.value = t; o.textContent = t; ts.appendChild(o); });
+    envs.forEach(e  => { const o = document.createElement("option"); o.value = e; o.textContent = e; es.appendChild(o); });
+  }
+
+  function updateStats() {
+    document.getElementById("statTotal").textContent     = allData.length;
+    document.getElementById("statHigh").textContent      = allData.filter(d => d.confidence?.toUpperCase() === "HIGH").length;
+    document.getElementById("statPermanent").textContent = allData.filter(d => d.isTransient === false).length;
+    document.getElementById("statSimilar").textContent   = allData.filter(d => d.similarFailuresFound > 0).length;
+  }
+
+  function renderTable() {
+    const search = document.getElementById("searchInput").value.toLowerCase();
+    const typeF  = document.getElementById("filterType").value;
+    const envF   = document.getElementById("filterEnv").value;
+
+    const filtered = allData.filter(d => {
+      const ms = !search || d.testName?.toLowerCase().includes(search) || d.exceptionMessage?.toLowerCase().includes(search);
+      return ms && (!typeF || d.failureType === typeF) && (!envF || d.environment === envF);
+    });
+
+    const tbody = document.getElementById("tableBody");
+    tbody.innerHTML = "";
+
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("failureTable").style.display = filtered.length ? "table" : "none";
+
+    if (!filtered.length) {
+      document.getElementById("loading").style.display = "block";
+      document.getElementById("loading").textContent = "No failures match your filters.";
+    }
+
+    filtered.forEach((d, i) => {
+      const conf = (d.confidence || "UNKNOWN").toUpperCase();
+      const cc   = conf === "HIGH" ? "high" : conf === "MEDIUM" ? "medium" : conf === "LOW" ? "low" : "unknown";
+      const tc   = d.isTransient ? "transient" : "permanent";
+      const tt   = d.isTransient ? "Transient" : "Permanent";
+
+      const tr = document.createElement("tr");
+      tr.onclick = () => openModal(d);
+      tr.innerHTML = `
+        <td class="num-col">${allData.length - i}</td>
+        <td class="ts-col">${d.timestamp}</td>
+        <td class="wide" title="${d.testName}">${d.testName}</td>
+        <td><span class="pill unknown">${d.failureType || "UNKNOWN"}</span></td>
+        <td><span class="pill ${cc}">${conf}</span></td>
+        <td><span class="pill ${tc}">${tt}</span></td>
+        <td>${d.environment}</td>
+        <td style="font-family:var(--mono); font-size:13px;">${d.similarFailuresFound}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function openModal(d) {
+    document.getElementById("modalTitle").textContent    = d.testName;
+    document.getElementById("mType").textContent         = d.failureType || "UNKNOWN";
+    document.getElementById("mConf").textContent         = d.confidence  || "UNKNOWN";
+    document.getElementById("mTransient").textContent    = d.isTransient ? "Yes (Transient)" : "No (Permanent)";
+    document.getElementById("mEnv").textContent          = d.environment;
+    document.getElementById("mRootCause").textContent    = d.rootCause            || "—";
+    document.getElementById("mFramework").textContent    = d.frameworkSuggestion  || "—";
+    document.getElementById("mException").textContent    = d.exceptionMessage     || "—";
+    document.getElementById("mBugReport").textContent    = d.bugReport            || "—";
+
+    const fl = document.getElementById("mFixes");
+    fl.innerHTML = "";
+    (d.recommendedFix || []).forEach(fix => {
+      const li = document.createElement("li"); li.textContent = fix; fl.appendChild(li);
+    });
+
+    document.getElementById("modalOverlay").classList.add("open");
+  }
+
+  function closeModal(e) {
+    if (e.target === document.getElementById("modalOverlay")) closeModalDirect();
+  }
+
+  function closeModalDirect() {
+    document.getElementById("modalOverlay").classList.remove("open");
+  }
+
+  loadData();
+  setInterval(loadData, 30000);
+</script>
+</body>
+</html>

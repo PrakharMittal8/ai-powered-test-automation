@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+openai
+python-dotenv
+pydantic
+httpx
+sentence-transformers
+faiss-cpu
+numpy
+langgraph
+langchain-core
+mcp

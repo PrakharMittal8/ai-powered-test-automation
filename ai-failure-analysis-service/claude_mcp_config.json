@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "ai-failure-analysis": {
+      "command": "python",
+      "args": ["C:\\Users\\prakhmit\\Desktop\\ai-failure-analysis-service\\mcp_server.py"],
+      "env": {}
+    }
+  }
+}
